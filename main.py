@@ -18,16 +18,6 @@ EXCLUDED_SLUGS = {
 PAGINATION_PARAM = "store-page-ai-YU6n3j"  # parâmetro de paginação usado pelo builder da Hostinger
 MAX_PAGINAS = 50  # trava de segurança para nunca entrar num loop infinito
 
-# Seletores descobertos no HTML renderizado do site (ver análise do 317068-vestido-lais):
-# o JSON-LD frequentemente OMITE o campo "offers.availability" quando o produto está
-# esgotado, e o script antigo tratava omissão como "in stock" por padrão (bug).
-# O estado real só aparece no DOM depois que o JS da página roda: o botão de compra
-# fica com o atributo "disabled" e existe um <p> com o texto "Indisponível" (que fica
-# visualmente escondido via CSS, mas continua presente no DOM/texto).
-SELETOR_BOTAO_COMPRAR = '[data-qa="productsection-btn-addtobag"]'
-SELETOR_TEXTO_ESTOQUE = '.block-product__stock-text'
-TEXTO_INDISPONIVEL = "indispon"  # cobre "Indisponível" ignorando maiúsculas/acentos parciais
-
 
 def _extrair_urls_produto(html, base_netloc):
     """Recebe o HTML já renderizado de uma página e devolve o set de URLs de produto encontradas nela."""
@@ -57,150 +47,93 @@ def _extrair_urls_produto(html, base_netloc):
     return encontrados
 
 
-def obter_urls_com_playwright(page):
-    """Percorre todas as páginas de paginação do catálogo e captura os links de produto
-    de cada uma, parando quando uma página não trouxer nenhum produto novo (fim da
-    paginação ou página inexistente). Recebe uma `page` já aberta para reaproveitar
-    a mesma sessão de navegador usada depois para checar cada produto."""
-    print("🚀 Percorrendo o catálogo para descobrir os produtos...")
+def obter_urls_com_playwright():
+    """Abre um navegador headless, percorre todas as páginas de paginação do catálogo
+    e captura os links de produto de cada uma, parando quando uma página não trouxer
+    nenhum produto novo (fim da paginação ou página inexistente)."""
+    print("🚀 Abrindo o navegador invisível para renderizar o catálogo...")
     urls_produtos = set()
     base_netloc = urlparse(BASE_URL).netloc
 
-    for pagina in range(1, MAX_PAGINAS + 1):
-        url_pagina = CATALOG_URL if pagina == 1 else f"{CATALOG_URL}?{PAGINATION_PARAM}={pagina}"
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
-        page.goto(url_pagina, wait_until="networkidle", timeout=60000)
-        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-        page.wait_for_timeout(2000)
-        html_renderizado = page.content()
+        for pagina in range(1, MAX_PAGINAS + 1):
+            url_pagina = CATALOG_URL if pagina == 1 else f"{CATALOG_URL}?{PAGINATION_PARAM}={pagina}"
 
-        encontrados = _extrair_urls_produto(html_renderizado, base_netloc)
-        antes = len(urls_produtos)
-        urls_produtos.update(encontrados)
-        novos = len(urls_produtos) - antes
+            page.goto(url_pagina, wait_until="networkidle", timeout=60000)
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_timeout(2000)
+            html_renderizado = page.content()
 
-        print(f"   📄 Página {pagina}: {len(encontrados)} produtos na página, {novos} novos no total")
+            encontrados = _extrair_urls_produto(html_renderizado, base_netloc)
+            antes = len(urls_produtos)
+            urls_produtos.update(encontrados)
+            novos = len(urls_produtos) - antes
 
-        # Se a página não trouxe nenhum produto que já não estivesse na lista,
-        # assumimos que a paginação acabou (ou o site redirecionou pra página 1).
-        if novos == 0:
-            break
+            print(f"   📄 Página {pagina}: {len(encontrados)} produtos na página, {novos} novos no total")
+
+            # Se a página não trouxe nenhum produto que já não estivesse na lista,
+            # assumimos que a paginação acabou (ou o site redirecionou pra página 1).
+            if novos == 0:
+                break
+
+        browser.close()
 
     lista_urls = sorted(list(urls_produtos))
     print(f"✅ Encontrados {len(lista_urls)} produtos após renderização do JavaScript!\n")
     return lista_urls
 
 
-def _limpar_descricao(texto):
-    """Corrige a formatação da descrição vinda do JSON-LD do site.
+def determinar_disponibilidade(soup):
+    """Decide o status real de estoque a partir do DOM já renderizado (pós-JS).
+    O JSON-LD desse site frequentemente NÃO traz o campo 'availability', então
+    não dá pra confiar nele — o sinal confiável é o estado do botão de compra
+    (fica com o atributo 'disabled' quando esgotado) e/ou o texto de aviso
+    '.block-product__stock-text' (existe no DOM mesmo quando escondido por CSS)."""
+    btn = soup.find("button", attrs={"data-qa": "productsection-btn-addtobag"})
+    if btn and btn.has_attr("disabled"):
+        return "out of stock"
 
-    O builder da Hostinger frequentemente junta blocos de texto (ex: "Sobre essa
-    peça:", "Composição:", "Descrição:") sem espaço entre eles, e usa '\\xa0'
-    (non-breaking space) em vez de espaço comum — o que resulta em textos como
-    "Composição:\\xa0100% VISCOSEDescrição:Vestido..." quando lido em Python.
-    Isso vai parar sem tratamento no feed do Instagram/Facebook, então precisa
-    ser corrigido antes de gerar o CSV.
-    """
-    if not texto:
-        return texto
+    stock_text_el = soup.find(class_="block-product__stock-text")
+    if stock_text_el:
+        texto = stock_text_el.get_text(strip=True).lower()
+        if "indispon" in texto or "esgotado" in texto:
+            return "out of stock"
 
-    t = texto.replace("\xa0", " ")
-
-    # Insere espaço depois de ':' ou '.' quando está colado na palavra seguinte
-    # (ex: "peça:Composição" -> "peça: Composição")
-    t = re.sub(r"([:.])(?=[^\s])", r"\1 ", t)
-
-    # Insere espaço quando uma palavra (minúscula ou sigla em CAIXA-ALTA) está
-    # colada direto numa palavra capitalizada seguinte, sem nenhuma pontuação
-    # entre elas (ex: "ALGODÃODescrição" -> "ALGODÃO Descrição")
-    t = re.sub(r"(?<=[a-zà-úA-ZÀ-Ú0-9%])(?=[A-ZÀ-Ú][a-zà-ú])", " ", t)
-
-    # Colapsa espaços múltiplos resultantes e limpa as pontas
-    t = re.sub(r"\s+", " ", t).strip()
-
-    # Remove "Descrição:" (ou variações de maiúsc/minúsc e espaço antes dos dois
-    # pontos) quando ela sobra no final do texto sem nenhum conteúdo depois —
-    # nesses casos o campo não agrega nada e só polui a descrição.
-    t = re.sub(r"\s*Descrição\s*:\s*$", "", t, flags=re.IGNORECASE).strip()
-
-    return t
+    return "in stock"
 
 
-def _checar_estoque_no_dom(page):
-    """Lê o estado REAL de estoque a partir do DOM já renderizado (pós-JS), em vez do
-    JSON-LD. Retorna "in stock" ou "out of stock".
+def verificar_produto(page, url):
+    """Abre a página do produto no navegador (JS executado), espera a checagem
+    de estoque assíncrona terminar, e extrai os dados combinando JSON-LD
+    (título, descrição, preço, imagem) com o DOM renderizado (disponibilidade real)."""
+    page.goto(url, wait_until="networkidle", timeout=45000)
+    page.wait_for_timeout(1500)  # dá tempo pro estado de estoque assíncrono terminar de carregar
 
-    Regra: se o botão de comprar estiver desabilitado OU existir o texto "Indisponível"
-    (mesmo que escondido via CSS) associado ao produto, consideramos esgotado.
-    Qualquer um dos dois sinais basta — não exigimos os dois ao mesmo tempo, porque
-    não temos garantia de que o site sempre renderiza ambos de forma consistente.
-    """
-    esgotado = False
+    soup = BeautifulSoup(page.content(), "html.parser")
+    script_tag = soup.find("script", type="application/ld+json")
 
-    try:
-        botao = page.query_selector(SELETOR_BOTAO_COMPRAR)
-        if botao is not None:
-            # is_disabled() considera tanto o atributo "disabled" quanto aria-disabled
-            if botao.is_disabled():
-                esgotado = True
-    except Exception:
-        pass
-
-    if not esgotado:
-        try:
-            texto_estoque = page.query_selector(SELETOR_TEXTO_ESTOQUE)
-            if texto_estoque is not None:
-                conteudo = (texto_estoque.text_content() or "").strip().lower()
-                if TEXTO_INDISPONIVEL in conteudo:
-                    esgotado = True
-        except Exception:
-            pass
-
-    return "out of stock" if esgotado else "in stock"
-
-
-def _verificar_produto_playwright(page, url):
-    """Visita a página de um produto com o navegador (JS habilitado) e monta o item
-    do catálogo. Usa o JSON-LD para os campos descritivos (título, preço, imagem etc,
-    que não têm o problema de disponibilidade) e o DOM renderizado para o campo
-    `availability`, que é o único que o JSON-LD não reporta de forma confiável."""
-    try:
-        response = page.goto(url, wait_until="networkidle", timeout=45000)
-        if response is None or response.status >= 400:
-            return None
-
-        # Dá um tempo extra para a chamada assíncrona que atualiza o estado de
-        # disponibilidade dos botões terminar de rodar (ela acontece depois do
-        # "networkidle" inicial, conforme identificado na análise do HTML).
-        page.wait_for_timeout(1500)
-
-        html = page.content()
-        soup = BeautifulSoup(html, "html.parser")
-        script_tag = soup.find("script", type="application/ld+json")
-
-        if not script_tag or not script_tag.string:
-            return None
-
-        data = json.loads(script_tag.string)
-        offers = data.get("offers", {})
-
-        availability = _checar_estoque_no_dom(page)
-
-        product_id = url.split("/")[-1]
-        return {
-            "id": product_id,
-            "title": data.get("name"),
-            "description": _limpar_descricao(data.get("description", "Marias & Tal")),
-            "availability": availability,
-            "condition": "new",
-            "price": f"{offers.get('price', '')} BRL" if offers.get("price") else "",
-            "link": offers.get("url", url),
-            "image_link": data.get("image"),
-            "brand": "Marias & Tal"
-        }
-    except Exception as e:
-        print(f"   ✖ Erro ao acessar {url}: {e}")
+    if not (script_tag and script_tag.string):
         return None
+
+    data = json.loads(script_tag.string)
+    offers = data.get("offers", {})
+    availability = determinar_disponibilidade(soup)
+
+    return {
+        "id": url.split("/")[-1],
+        "title": data.get("name"),
+        "description": data.get("description", "Marias & Tal"),
+        "availability": availability,
+        "condition": "new",
+        "price": f"{offers.get('price', '')} BRL" if offers.get("price") else "",
+        "link": offers.get("url", url),
+        "image_link": data.get("image"),
+        "brand": "Marias & Tal",
+        "inventory": 1 if availability == "in stock" else 0,  # exigido pela Meta mesmo sem controle numérico real
+    }
 
 
 def carregar_estado_anterior():
@@ -222,31 +155,35 @@ def salvar_estado(produtos_dict):
 
 
 def gerar_catalogo():
+    urls_atuais = obter_urls_com_playwright()
+    produtos_conhecidos = carregar_estado_anterior()
+
+    # Precisamos checar tanto os produtos visíveis agora quanto os que já
+    # conhecíamos de execuções anteriores (para saber se ainda existem ou não).
+    urls_conhecidas = {f"{BASE_URL}/{pid}" for pid in produtos_conhecidos.keys()}
+    todas_urls = sorted(set(urls_atuais) | urls_conhecidas)
+
+    if not todas_urls:
+        print("❌ Nenhum produto foi capturado (nem novo, nem no histórico). Verifique os seletores.")
+        return
+
+    produtos_dict = {}
+    novos_no_historico = len(urls_conhecidas - set(urls_atuais))
+    print(f"📦 Verificando {len(todas_urls)} produtos "
+          f"({len(urls_atuais)} visíveis agora + {novos_no_historico} só no histórico)...\n")
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         page = browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
 
-        urls_atuais = obter_urls_com_playwright(page)
-        produtos_conhecidos = carregar_estado_anterior()
-
-        # Precisamos checar tanto os produtos visíveis agora quanto os que já
-        # conhecíamos de execuções anteriores (para saber se ainda existem ou não).
-        urls_conhecidas = {f"{BASE_URL}/{pid}" for pid in produtos_conhecidos.keys()}
-        todas_urls = sorted(set(urls_atuais) | urls_conhecidas)
-
-        if not todas_urls:
-            print("❌ Nenhum produto foi capturado (nem novo, nem no histórico). Verifique os seletores.")
-            browser.close()
-            return
-
-        produtos_dict = {}
-        novos_no_historico = len(urls_conhecidas - set(urls_atuais))
-        print(f"📦 Verificando {len(todas_urls)} produtos "
-              f"({len(urls_atuais)} visíveis agora + {novos_no_historico} só no histórico)...\n")
-
         for idx, url in enumerate(todas_urls, 1):
             product_id = url.split("/")[-1]
-            item_obtido = _verificar_produto_playwright(page, url)
+            item_obtido = None
+
+            try:
+                item_obtido = verificar_produto(page, url)
+            except Exception as e:
+                print(f"[{idx}/{len(todas_urls)}] ✖ Erro ao acessar {url}: {e}")
 
             if item_obtido:
                 # Página respondeu normalmente: usa os dados frescos (inclui o
@@ -261,6 +198,7 @@ def gerar_catalogo():
                 # como out of stock em vez de simplesmente sumir do CSV.
                 item_anterior = dict(produtos_conhecidos[product_id])
                 item_anterior["availability"] = "out of stock"
+                item_anterior["inventory"] = 0
                 produtos_dict[product_id] = item_anterior
                 print(f"[{idx}/{len(todas_urls)}] ⚪ {item_anterior.get('title', product_id)} -> "
                       f"não encontrado no site agora, mantido como out of stock")
@@ -273,7 +211,7 @@ def gerar_catalogo():
         browser.close()
 
     if produtos_dict:
-        fieldnames = ["id", "title", "description", "availability", "condition", "price", "link", "image_link", "brand"]
+        fieldnames = ["id", "title", "description", "availability", "inventory", "condition", "price", "link", "image_link", "brand"]
         with open("catalog.csv", "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
