@@ -86,6 +86,57 @@ def obter_urls_com_playwright():
     return lista_urls
 
 
+def normalizar_maiusculas(texto):
+    """Corrige a recomendação 'Content is in uppercase' da Meta: qualquer
+    palavra inteiramente em maiúsculas (2+ letras) vira Capitalizada
+    (primeira letra maiúscula, resto minúsculo). Números, %, siglas de uma
+    letra e texto que já não está em caixa alta ficam intocados."""
+    if not texto:
+        return texto
+
+    def cap_palavra(m):
+        palavra = m.group(0)
+        if len(palavra) > 1 and palavra.isupper():
+            return palavra[0] + palavra[1:].lower()
+        return palavra
+
+    return re.sub(r"\w+", cap_palavra, texto, flags=re.UNICODE)
+
+
+def limpar_descricao(raw):
+    """Limpa a descrição crua vinda do JSON-LD desse site, que costuma vir sem
+    formatação real: rótulos 'Sobre essa peça:'/'Composição:'/'Descrição:' colados
+    no texto ao redor, espaços especiais (nbsp) e, às vezes, o rótulo 'Descrição:'
+    penduradinho no final sem nenhum conteúdo depois."""
+    if not raw or not raw.strip():
+        return "Marias & Tal"
+
+    texto = raw.replace("\xa0", " ")
+    texto = re.sub(r"\s+", " ", texto).strip()
+    texto = re.sub(r"(?i)^sobre essa peça:\s*", "", texto).strip()
+
+    m_comp = re.search(r"(?i)composição:\s*(.*?)(?=descrição:?|$)", texto)
+    m_desc = re.search(r"(?i)descrição:?\s*(.*)$", texto)
+
+    composicao = m_comp.group(1).strip(" .,;") if m_comp else ""
+    descricao = m_desc.group(1).strip(" .,;") if m_desc else ""
+
+    partes = []
+    if composicao:
+        partes.append(f"Composição: {composicao}.")
+    if descricao:
+        partes.append(descricao if descricao.endswith((".", "!", "?")) else f"{descricao}.")
+
+    if not partes:
+        # Texto simples, sem os rótulos "Composição"/"Descrição" (ex.: "Bermuda com bordado na lateral")
+        texto = texto.strip(" .,;")
+        partes.append(f"{texto}.")
+
+    resultado = re.sub(r"\s+", " ", " ".join(partes)).strip()
+    resultado = normalizar_maiusculas(resultado)
+    return resultado or "Marias & Tal"
+
+
 def determinar_disponibilidade(soup):
     """Decide o status real de estoque a partir do DOM já renderizado (pós-JS).
     O JSON-LD desse site frequentemente NÃO traz o campo 'availability', então
@@ -124,8 +175,8 @@ def verificar_produto(page, url):
 
     return {
         "id": url.split("/")[-1],
-        "title": data.get("name"),
-        "description": data.get("description", "Marias & Tal"),
+        "title": normalizar_maiusculas(data.get("name")),
+        "description": limpar_descricao(data.get("description", "")),
         "availability": availability,
         "condition": "new",
         "price": f"{offers.get('price', '')} BRL" if offers.get("price") else "",
