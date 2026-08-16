@@ -531,36 +531,36 @@
     "id": "317150-chemise-maria-ilda",
     "title": "317150  -  Chemise Maria Ilda",
     "description": "Composição: 100% Algodão. Chemise em tecido de algodão gola padre com detalhe em rendas artesanais e cinto em croche.",
-    "availability": "in stock",
+    "availability": "out of stock",
     "condition": "new",
     "price": "494.00 BRL",
     "link": "https://mariasetal.com/317150-chemise-maria-ilda",
     "image_link": "https://cdn.zyrosite.com/cdn-ecommerce/store_01KN06ASZGYJV6M41ASZJ5XQ08/assets/3f57ca54-30ca-4da9-a7f2-9d4eee02b4e5.png",
     "brand": "Marias & Tal",
-    "inventory": 1
+    "inventory": 0
   },
   "317168-vestido-rosa-maria": {
     "id": "317168-vestido-rosa-maria",
     "title": "317168 - Vestido Rosa Maria",
     "description": "Composição: 100% algodão. Vestido curto com alcinhas em tecido, algodão com margaridas bordadas.",
-    "availability": "in stock",
+    "availability": "out of stock",
     "condition": "new",
     "price": "254.60 BRL",
     "link": "https://mariasetal.com/317168-vestido-rosa-maria",
     "image_link": "https://cdn.zyrosite.com/cdn-ecommerce/store_01KN06ASZGYJV6M41ASZJ5XQ08/assets/d5c62def-6733-40a0-9c62-482252bf2525.jpg",
     "brand": "Marias & Tal",
-    "inventory": 1
+    "inventory": 0
   },
   "317187-top-maria-rafaela": {
     "id": "317187-top-maria-rafaela",
     "title": "317187 - Top Maria Rafaela",
     "description": "Composição: 100% algodão. Top Em Algodão Acetinado Todo Bordado Em Linha De Algodão.",
-    "availability": "in stock",
+    "availability": "out of stock",
     "condition": "new",
     "price": "93.00 BRL",
     "link": "https://mariasetal.com/317187-top-maria-rafaela",
     "image_link": "https://cdn.zyrosite.com/cdn-ecommerce/store_01KN06ASZGYJV6M41ASZJ5XQ08/assets/6352d73e-32e0-4fa5-94d5-d66d40b44951.png",
     "brand": "Marias & Tal",
-    "inventory": 1
+    "inventory": 0
   }
 }
