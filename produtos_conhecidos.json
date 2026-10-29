@@ -551,6 +551,18 @@
     "brand": "Marias & Tal",
     "inventory": 1
   },
+  "317139-bermuda-maria-isis": {
+    "id": "317139-bermuda-maria-isis",
+    "title": "317139 - Bermuda Maria Isis",
+    "description": "Deslumbre com sofisticação usando este vestido longo em tecido texturizado leve. Com modelagem assimétrica de um ombro só e recorte com barra em babados volumosos, ele oferece um caimento impecável e cheio de movimento. Perfeito para celebrações, festas de fim de ano e eventos especiais ao ar livre.",
+    "availability": "in stock",
+    "condition": "new",
+    "price": "140.10 BRL",
+    "link": "https://mariasetal.com/317139-bermuda-maria-isis",
+    "image_link": "https://cdn.zyrosite.com/cdn-ecommerce/store_01KN06ASZGYJV6M41ASZJ5XQ08/assets/348ac8cd-d033-4451-9b1d-3cc03b1c5e88.jpg",
+    "brand": "Marias & Tal",
+    "inventory": 1
+  },
   "317150-chemise-maria-ilda": {
     "id": "317150-chemise-maria-ilda",
     "title": "317150  -  Chemise Maria Ilda",
@@ -572,6 +584,18 @@
     "price": "212.40 BRL",
     "link": "https://mariasetal.com/317161-blusa-nivea-maria-",
     "image_link": "https://cdn.zyrosite.com/cdn-ecommerce/store_01KN06ASZGYJV6M41ASZJ5XQ08/assets/68a9f6da-9088-447d-9f88-f98110a7b963.jpg",
+    "brand": "Marias & Tal",
+    "inventory": 1
+  },
+  "317166-bermuda-maria-stela": {
+    "id": "317166-bermuda-maria-stela",
+    "title": "317166 - Bermuda Maria Stela",
+    "description": "Deslumbre com sofisticação usando este vestido longo em tecido texturizado leve. Com modelagem assimétrica de um ombro só e recorte com barra em babados volumosos, ele oferece um caimento impecável e cheio de movimento. Perfeito para celebrações, festas de fim de ano e eventos especiais ao ar livre.",
+    "availability": "in stock",
+    "condition": "new",
+    "price": "225.10 BRL",
+    "link": "https://mariasetal.com/317166-bermuda-maria-stela",
+    "image_link": "https://cdn.zyrosite.com/cdn-ecommerce/store_01KN06ASZGYJV6M41ASZJ5XQ08/assets/e8b99b72-c368-4d62-889f-23f44153536c.jpg",
     "brand": "Marias & Tal",
     "inventory": 1
   },
@@ -627,13 +651,13 @@
     "id": "317187-top-maria-rafaela",
     "title": "317187 - Top Maria Rafaela",
     "description": "Composição: 100% algodão. Top Em Algodão Acetinado Todo Bordado Em Linha De Algodão.",
-    "availability": "in stock",
+    "availability": "out of stock",
     "condition": "new",
     "price": "93.00 BRL",
     "link": "https://mariasetal.com/317187-top-maria-rafaela",
     "image_link": "https://cdn.zyrosite.com/cdn-ecommerce/store_01KN06ASZGYJV6M41ASZJ5XQ08/assets/6352d73e-32e0-4fa5-94d5-d66d40b44951.png",
     "brand": "Marias & Tal",
-    "inventory": 1
+    "inventory": 0
   },
   "317187-top-maria-rafaela-": {
     "id": "317187-top-maria-rafaela-",
