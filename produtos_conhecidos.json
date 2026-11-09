@@ -159,13 +159,13 @@
     "id": "317031-calca-maria-ivana",
     "title": "317031 - Calça Maria Ivana",
     "description": "Calça capri com detalhes na lateral.",
-    "availability": "out of stock",
+    "availability": "in stock",
     "condition": "new",
     "price": "204.00 BRL",
     "link": "https://mariasetal.com/317031-calca-maria-ivana",
     "image_link": "https://cdn.zyrosite.com/cdn-ecommerce/store_01KN06ASZGYJV6M41ASZJ5XQ08/assets/dc34ef3c-50cd-4f48-a25e-a28d29a4f966.jpg",
     "brand": "Marias & Tal",
-    "inventory": 0
+    "inventory": 1
   },
   "317033-vestido-maria-zoe": {
     "id": "317033-vestido-maria-zoe",
